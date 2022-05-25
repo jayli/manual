@@ -32,7 +32,7 @@ jobs:
   build:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: denoland/setup-deno@v1.0.0
         with:
           deno-version: v1.x # Run with latest stable Deno.
@@ -52,7 +52,7 @@ need:
 
       # Run all test files in the repository and collect code coverage. The example
       # runs with all permissions, but it is recommended to run with the minimal permissions your program needs (for example --allow-read).
-      - run: deno test --allow-all --coverage cov/
+      - run: deno test --allow-all --coverage=cov/
 
       # This generates a report from the collected coverage in `deno test --coverage`. It is
       # stored as a .lcov file which integrates well with services such as Codecov, Coveralls and Travis CI.
@@ -82,7 +82,7 @@ jobs:
 > Windows-style line endings (CRLF). This may cause issues when running
 > `deno fmt` in a pipeline with jobs that run on `windows`. To prevent this,
 > configure the Actions runner to use Linux-style line endings before running
-> the `actions/checkout@v2` step:
+> the `actions/checkout@v3` step:
 >
 > ```
 > git config --system core.autocrlf false

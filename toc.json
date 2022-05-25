@@ -39,15 +39,16 @@
       "import_maps": "Import maps"
     }
   },
-  "npm_nodejs": {
-    "name": "Using npm/Node.js code",
+  "node": {
+    "name": "Interoperating with Node and NPM",
     "children": {
-      "compatibility_mode": "Node.js compatibility mode",
+      "compatibility_mode": "Node compatibility mode",
       "std_node": "The std/node library",
       "cdns": "Packages from CDNs",
       "import_maps": "Using import maps",
       "faqs": "Frequently asked questions",
-      "cheatsheet": "Node->Deno cheatsheet"
+      "cheatsheet": "Node->Deno cheatsheet",
+      "dnt": "dnt - Deno to Node Transform"
     }
   },
   "typescript": {
@@ -57,14 +58,19 @@
       "configuration": "Configuration",
       "types": "Types and type declarations",
       "migration": "Migrating to/from JavaScript",
-      "runtime": "Runtime compiler APIs",
       "faqs": "Frequently asked questions"
     }
   },
   "jsx_dom": {
-    "name": "Using JSX",
+    "name": "Using JSX and the DOM",
     "children": {
-      "jsx": "Configuring"
+      "overview": "Overview",
+      "jsx": "Configuring JSX",
+      "linkedom": "Using LinkeDOM",
+      "deno_dom": "Using deno-dom",
+      "jsdom": "Using jsdom",
+      "css": "Parsing CSS",
+      "twind": "Using Twind"
     }
   },
   "webassembly": {
@@ -102,7 +108,10 @@
       "assertions": "Assertions",
       "coverage": "Coverage",
       "documentation": "Documentation",
-      "sanitizers": "Sanitizers"
+      "sanitizers": "Sanitizers",
+      "behavior_driven_development": "Behavior-driven development",
+      "mocking": "Mocking",
+      "snapshot_testing": "Snapshots"
     }
   },
   "tools": {
@@ -115,21 +124,31 @@
       "compiler": "Compiling executables",
       "documentation_generator": "Documentation generator",
       "dependency_inspector": "Dependency inspector",
-      "linter": "Linter"
+      "linter": "Linter",
+      "task_runner": "Task runner",
+      "vendor": "Vendoring dependencies",
+      "benchmarker": "Benchmarking"
     }
   },
   "continuous_integration": {
     "name": "Continuous integration"
   },
   "vscode_deno": {
-    "name": "Using Visual Studio Code"
+    "name": "Using Visual Studio Code",
+    "children": {
+      "testing_api": "Testing API"
+    }
   },
   "language_server": {
     "name": "Language Server",
     "children": {
       "overview": "Overview of the language server",
-      "imports": "Import suggestions and intelligent registries"
+      "imports": "Import suggestions and intelligent registries",
+      "testing_api": "Testing API"
     }
+  },
+  "publishing": {
+    "name": "Publishing Modules"
   },
   "embedding_deno": {
     "name": "Embedding Deno"

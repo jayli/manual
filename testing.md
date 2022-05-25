@@ -3,11 +3,30 @@
 Deno has a built-in test runner that you can use for testing JavaScript or
 TypeScript code.
 
-`deno test` will search in `./*` and `./**/*` recursively, for test files:
+## Quickstart
 
-- named `test.{ts, tsx, mts, js, mjs, jsx, cjs, cts}`,
-- or ending with `.test.{ts, tsx, mts, js, mjs, jsx, cjs, cts}`,
-- or ending with `_test.{ts, tsx, mts, js, mjs, jsx, cjs, cts}`
+Firstly, let's create a file `url_test.ts` and register a test case using
+`Deno.test()` function.
+
+```ts
+// url_test.ts
+import { assertEquals } from "https://deno.land/std@$STD_VERSION/testing/asserts.ts";
+
+Deno.test("url test", () => {
+  const url = new URL("./foo.js", "https://deno.land/");
+  assertEquals(url.href, "https://deno.land/foo.js");
+});
+```
+
+Secondly, run the test using `deno test` subcommand.
+
+```sh
+$ deno test url_test.ts
+running 1 test from file:///dev/url_test.js
+test url test ... ok (2ms)
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out (9ms)
+```
 
 ## Writing tests
 
@@ -40,7 +59,7 @@ Deno.test({
   },
 });
 
-// Similar to compat form, with additional configuration as a second argument.
+// Similar to compact form, with additional configuration as a second argument.
 Deno.test("hello world #4", { permissions: { read: true } }, () => {
   const x = 1 + 2;
   assertEquals(x, 3);
@@ -88,27 +107,46 @@ The test steps API provides a way to report distinct steps within a test and do
 setup and teardown code within that test.
 
 ```ts
+import { assertEquals } from "https://deno.land/std@$STD_VERSION/testing/asserts.ts";
+import { Client } from "https://deno.land/x/postgres@v0.15.0/mod.ts";
+
+interface User {
+  id: number;
+  name: string;
+}
+
+interface Book {
+  id: number;
+  title: string;
+}
+
 Deno.test("database", async (t) => {
-  const db = await Database.connect("postgres://localhost/test");
+  const client = new Client({
+    user: "user",
+    database: "test",
+    hostname: "localhost",
+    port: 5432,
+  });
+  await client.connect();
 
   // provide a step name and function
   await t.step("insert user", async () => {
-    const users = await db.query(
+    const users = await client.queryObject<User>(
       "INSERT INTO users (name) VALUES ('Deno') RETURNING *",
     );
-    assertEquals(users.length, 1);
-    assertEquals(users[0].name, "Deno");
+    assertEquals(users.rows.length, 1);
+    assertEquals(users.rows[0].name, "Deno");
   });
 
   // or provide a test definition
   await t.step({
     name: "insert book",
     fn: async () => {
-      const books = await db.query(
+      const books = await client.queryObject<Book>(
         "INSERT INTO books (name) VALUES ('The Deno Manual') RETURNING *",
       );
-      assertEquals(books.length, 1);
-      assertEquals(books[0].name, "The Deno Manual");
+      assertEquals(books.rows.length, 1);
+      assertEquals(books.rows[0].title, "The Deno Manual");
     },
     ignore: false,
     // these default to the parent test or step's value
@@ -153,7 +191,7 @@ Deno.test("database", async (t) => {
     })
   ));
 
-  db.close();
+  client.end();
 });
 ```
 
@@ -184,7 +222,7 @@ Notes:
    parent test are disabled.
 3. If nesting steps, ensure you specify a parameter for the parent step.
    ```ts
-   Deno.test("my test", (t) => {
+   Deno.test("my test", async (t) => {
      await t.step("step", async (t) => {
        // note the `t` used here is for the parent step and not the outer `Deno.test`
        await t.step("sub-step", () => {
@@ -202,6 +240,12 @@ function. You can also omit the file name, in which case all tests in the
 current directory (recursively) that match the glob
 `{*_,*.,}test.{ts, tsx, mts, js, mjs, jsx, cjs, cts}` will be run. If you pass a
 directory, all files in the directory that match this glob will be run.
+
+The glob expands to:
+
+- files named `test.{ts, tsx, mts, js, mjs, jsx, cjs, cts}`,
+- or files ending with `.test.{ts, tsx, mts, js, mjs, jsx, cjs, cts}`,
+- or files ending with `_test.{ts, tsx, mts, js, mjs, jsx, cjs, cts}`
 
 ```shell
 # Run all tests in the current directory and all sub-directories
@@ -246,7 +290,7 @@ The filter flags accept a string or a pattern as value.
 
 Assuming the following tests:
 
-```ts
+```ts, ignore
 Deno.test({ name: "my-test", fn: myTest });
 Deno.test({ name: "test-1", fn: test1 });
 Deno.test({ name: "test2", fn: test2 });
@@ -284,7 +328,7 @@ Deno.test({
   name: "do macOS feature",
   ignore: Deno.build.os !== "darwin",
   fn() {
-    doMacOSFeature();
+    // do MacOS feature here
   },
 });
 ```
@@ -304,7 +348,7 @@ Deno.test({
   name: "Focus on this test only",
   only: true,
   fn() {
-    testComplicatedStuff();
+    // test complicated stuff here
   },
 });
 ```
@@ -357,7 +401,7 @@ export function foo(fn) {
 This way, we can call `foo(bar)` in the application code or wrap a spy function
 around `bar` and call `foo(spy)` in the testing code:
 
-```js
+```js, ignore
 import sinon from "https://cdn.skypack.dev/sinon";
 import { assertEquals } from "https://deno.land/std@$STD_VERSION/testing/asserts.ts";
 import { bar, foo } from "./my_file.js";
@@ -397,7 +441,7 @@ export function foo() {
 
 And then `import` in a test file:
 
-```js
+```js, ignore
 import sinon from "https://cdn.skypack.dev/sinon";
 import { assertEquals } from "https://deno.land/std@$STD_VERSION/testing/asserts.ts";
 import { foo, funcs } from "./my_file.js";

@@ -25,6 +25,26 @@ new Worker(new URL("./worker.js", import.meta.url).href, { type: "classic" });
 new Worker("./worker.js", { type: "module" });
 ```
 
+As with regular modules, you can use top-level `await` in worker modules.
+However, you should be careful to always register the message handler before the
+first `await`, since messages can be lost otherwise. This is not a bug in Deno,
+it's just an unfortunate interaction of features, and it also happens in all
+browsers that support module workers.
+
+```ts, ignore
+import { delay } from "https://deno.land/std@0.136.0/async/mod.ts";
+
+// First await: waits for a second, then continues running the module.
+await delay(1000);
+
+// The message handler is only set after that 1s delay, so some of the messages
+// that reached the worker during that second might have been fired when no
+// handler was registered.
+self.onmessage = (evt) => {
+  console.log(evt.data);
+};
+```
+
 ### Instantiation permissions
 
 Creating a new `Worker` instance is similar to a dynamic import; therefore Deno
@@ -78,29 +98,23 @@ hello world
 
 ### Using Deno in worker
 
-> This is an unstable Deno feature. Learn more about
-> [unstable features](./stability.md).
-
-By default the `Deno` namespace is not available in worker scope.
-
-To enable the `Deno` namespace pass `deno.namespace = true` option when creating
-new worker:
+> Starting in v1.22 the `Deno` namespace is available in worker scope by
+> default. To enable the namespace in earlier versions pass
+> `deno: { namespace: true }` when creating a new worker.
 
 **main.js**
 
-```ts
+```js
 const worker = new Worker(new URL("./worker.js", import.meta.url).href, {
   type: "module",
-  deno: {
-    namespace: true,
-  },
 });
+
 worker.postMessage({ filename: "./log.txt" });
 ```
 
 **worker.js**
 
-```ts
+```js, ignore
 self.onmessage = async (e) => {
   const { filename } = e.data;
   const text = await Deno.readTextFile(filename);
@@ -116,7 +130,7 @@ hello world
 ```
 
 ```shell
-$ deno run --allow-read --unstable main.js
+$ deno run --allow-read main.js
 hello world
 ```
 
@@ -142,7 +156,6 @@ the `deno.permissions` option in the worker API.
   const worker = new Worker(new URL("./worker.js", import.meta.url).href, {
     type: "module",
     deno: {
-      namespace: true,
       permissions: {
         net: [
           "https://deno.land/",
@@ -168,7 +181,6 @@ the `deno.permissions` option in the worker API.
     {
       type: "module",
       deno: {
-        namespace: true,
         permissions: {
           read: [
             "/home/user/Documents/deno/worker/file_1.txt",
@@ -188,7 +200,6 @@ the `deno.permissions` option in the worker API.
   const worker = new Worker(new URL("./worker.js", import.meta.url).href, {
     type: "module",
     deno: {
-      namespace: true,
       permissions: "inherit",
     },
   });
@@ -199,7 +210,6 @@ the `deno.permissions` option in the worker API.
   const worker = new Worker(new URL("./worker.js", import.meta.url).href, {
     type: "module",
     deno: {
-      namespace: true,
       permissions: {
         env: false,
         hrtime: false,
@@ -228,7 +238,6 @@ the `deno.permissions` option in the worker API.
   const worker = new Worker(new URL("./worker.js", import.meta.url).href, {
     type: "module",
     deno: {
-      namespace: true,
       permissions: {
         net: false,
       },
@@ -244,7 +253,6 @@ the `deno.permissions` option in the worker API.
   const worker = new Worker(new URL("./worker.js", import.meta.url).href, {
     type: "module",
     deno: {
-      namespace: true,
       permissions: "none",
     },
   });

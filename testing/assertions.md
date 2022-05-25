@@ -16,13 +16,15 @@ Deno.test("Hello Test", () => {
 > be used in Deno too, for example usage see
 > https://deno.land/std@$STD_VERSION/testing/chai_example.ts.
 
-The assertions module provides 10 assertions:
+The assertions module provides 14 assertions:
 
 - `assert(expr: unknown, msg = ""): asserts expr`
 - `assertEquals(actual: unknown, expected: unknown, msg?: string): void`
 - `assertExists(actual: unknown,msg?: string): void`
 - `assertNotEquals(actual: unknown, expected: unknown, msg?: string): void`
 - `assertStrictEquals(actual: unknown, expected: unknown, msg?: string): void`
+- `assertAlmostEquals(actual: number, expected: number, epsilon = 1e-7, msg?: string): void`
+- `assertInstanceOf(actual: unknown, expectedType: unknown, msg?: string): void`
 - `assertStringIncludes(actual: string, expected: string, msg?: string): void`
 - `assertArrayIncludes(actual: unknown[], expected: unknown[], msg?: string): void`
 - `assertMatch(actual: string, expected: RegExp, msg?: string): void`
@@ -30,6 +32,11 @@ The assertions module provides 10 assertions:
 - `assertObjectMatch( actual: Record<PropertyKey, unknown>, expected: Record<PropertyKey, unknown>): void`
 - `assertThrows(fn: () => void, ErrorClass?: Constructor, msgIncludes?: string | undefined, msg?: string | undefined): Error`
 - `assertRejects(fn: () => Promise<unknown>, ErrorClass?: Constructor, msgIncludes?: string | undefined, msg?: string | undefined): Promise<void>`
+
+In addition to the above assertions, the
+[snapshot module](https://deno.land/std@$STD_VERSION/testing/snapshot.ts) also
+exposes an `assertSnapshot` function. The documentation for this module can be
+found [here](https://deno.land/manual@$STD_VERSION/testing/snapshot_testing).
 
 ### Assert
 
@@ -107,6 +114,65 @@ Deno.test("Test Assert Strict Equals", () => {
 
 The `assertStrictEquals()` assertion is best used when you wish to make a
 precise check against two primitive types.
+
+#### Equality for numbers
+
+When testing equality between numbers, it is important to keep in mind that some
+of them cannot be accurately depicted by IEEE-754 double-precision
+floating-point representation.
+
+That's especially true when working with decimal numbers, where
+`assertStrictEquals()` may work in some cases but not in others:
+
+```ts
+import {
+  assertStrictEquals,
+  assertThrows,
+} from "https://deno.land/std@$STD_VERSION/testing/asserts.ts";
+
+Deno.test("Test Assert Strict Equals with float numbers", () => {
+  assertStrictEquals(0.25 + 0.25, 0.25);
+  assertThrows(() => assertStrictEquals(0.1 + 0.2, 0.3));
+  //0.1 + 0.2 will be stored as 0.30000000000000004 instead of 0.3
+});
+```
+
+Instead, `assertAlmostEquals()` provides a way to test that given numbers are
+close enough to be considered equals. Default tolerance is set to `1e-7` though
+it is possible to change it by passing a third optional parameter.
+
+```ts
+import {
+  assertAlmostEquals,
+  assertThrows,
+} from "https://deno.land/std@$STD_VERSION/testing/asserts.ts";
+
+Deno.test("Test Assert Almost Equals", () => {
+  assertAlmostEquals(0.1 + 0.2, 0.3);
+  assertAlmostEquals(0.1 + 0.2, 0.3, 1e-16);
+  assertThrows(() => assertAlmostEquals(0.1 + 0.2, 0.3, 1e-17));
+});
+```
+
+#### Instance types
+
+To check if a object is an instance of a specific constructor, you can use
+`assertInstanceOf()`. This has the added benefit that it lets TypeScript know
+the passed in variable has a specific type:
+
+```ts
+import { assertInstanceOf } from "https://deno.land/std@$STD_VERSION/testing/asserts.ts";
+
+Deno.test("Test Assert Instance Type", () => {
+  const variable = new Date() as unknown;
+
+  assertInstanceOf(variable, Date);
+
+  // This won't cause type errors now that
+  // it's type has been asserted against.
+  variable.getDay();
+});
+```
 
 ### Contains
 
@@ -244,7 +310,9 @@ there is always something specific to the project you can add. Creating
 `custom assertion function` can improve readability and reduce the amount of
 code.
 
-```js
+```ts
+import { AssertionError } from "https://deno.land/std@$STD_VERSION/testing/asserts.ts";
+
 function assertPowerOf(actual: number, expected: number, msg?: string): void {
   let received = actual;
   while (received % expected === 0) received = received / expected;

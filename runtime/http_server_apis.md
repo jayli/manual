@@ -9,6 +9,15 @@ tries to be simple and straightforward.
 > ℹ️ These APIs were stabilized in Deno 1.13 and no longer require `--unstable`
 > flag.
 
+- [A "Hello World" server](#a-hello-world-server)
+- [Inspecting the incoming request](#inspecting-the-incoming-request)
+- [Responding with a response](#responding-with-a-response)
+- [WebSocket support](#websocket-support)
+- [HTTPS support](#https-support)
+- [HTTP/2 support](#http2-support)
+- [Automatic body compression](#automatic-body-compression)
+- [Lower level APIs](#lower-level-http-server-apis)
+
 ### A "Hello World" server
 
 To start a HTTP server on a given port, you can use the `serve` function from
@@ -32,7 +41,7 @@ To then listen on a port and handle requests you need to call the `serve`
 function from the `https://deno.land/std@$STD_VERSION/http/server.ts` module,
 passing in the handler as the first argument:
 
-```ts
+```js
 import { serve } from "https://deno.land/std@$STD_VERSION/http/server.ts";
 
 serve(handler);
@@ -41,7 +50,9 @@ serve(handler);
 By default `serve` will listen on port `8000`, but this can be changed by
 passing in a port number in the second argument options bag:
 
-```ts
+```js
+import { serve } from "https://deno.land/std@$STD_VERSION/http/server.ts";
+
 // To listen on port 4242.
 serve(handler, { port: 4242 });
 ```
@@ -109,7 +120,7 @@ returns a stream of "Hello, World!" repeated every second:
 
 ```ts
 function handler(req: Request): Response {
-  let timer;
+  let timer: number;
   const body = new ReadableStream({
     async start(controller) {
       timer = setInterval(() => {
@@ -120,7 +131,7 @@ function handler(req: Request): Response {
       clearInterval(timer);
     },
   });
-  return new Response(body, {
+  return new Response(body.pipeThrough(new TextEncoderStream()), {
     headers: {
       "content-type": "text/plain; charset=utf-8",
     },
@@ -163,11 +174,9 @@ Documentation for it can be found
 ```ts
 function handler(req: Request): Response {
   const upgrade = req.headers.get("upgrade") || "";
-  let socket, response;
+  let response, socket: WebSocket;
   try {
-    res = Deno.upgradeWebSocket(req);
-    socket = res.socket;
-    response = res.response;
+    ({ response, socket } = Deno.upgradeWebSocket(req));
   } catch {
     return new Response("request isn't trying to upgrade to websocket.");
   }
@@ -176,7 +185,7 @@ function handler(req: Request): Response {
     console.log("socket message:", e.data);
     socket.send(new Date().toString());
   };
-  socket.onerror = (e) => console.log("socket errored:", e.message);
+  socket.onerror = (e) => console.log("socket errored:", e);
   socket.onclose = () => console.log("socket closed");
   return response;
 }
@@ -196,7 +205,7 @@ To use HTTPS, use `serveTls` from the
 This takes two extra arguments in the options bag: `certFile` and `keyFile`.
 These are paths to the certificate and key files, respectively.
 
-```ts
+```js
 import { serveTls } from "https://deno.land/std@$STD_VERSION/http/server.ts";
 
 serveTls(handler, {
@@ -205,6 +214,72 @@ serveTls(handler, {
   keyFile: "./key.pem",
 });
 ```
+
+### HTTP/2 support
+
+HTTP/2 support it "automatic" when using the _native_ APIs with Deno. You just
+need to create your server, and the server will handle HTTP/1 or HTTP/2 requests
+seamlessly.
+
+### Automatic body compression
+
+As of Deno 1.20, the HTTP server has built in automatic compression of response
+bodies. When a response is sent to a client, Deno determines if the response
+body can be safely compressed. This compression happens within the internals of
+Deno, so it is fast and efficient.
+
+Currently Deno supports gzip and brotli compression. A body is automatically
+compressed if the following conditions are true:
+
+- The request has an
+  [`Accept-Encoding`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding)
+  header which indicates the requestor supports `br` for brotli or `gzip`. Deno
+  will respect the preference of the
+  [quality value](https://developer.mozilla.org/en-US/docs/Glossary/Quality_values)
+  in the header.
+- The response includes a
+  [`Content-Type`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type)
+  which is considered compressible. (The list is derived from
+  [`jshttp/mime-db`](https://github.com/jshttp/mime-db/blob/master/db.json) with
+  the actual list in the
+  [code](https://github.com/denoland/deno/blob/$CLI_VERSION/ext/http/compressible.rs).)
+- The response body is greater than 20 bytes.
+
+When the response body is compressed, Deno will set the
+[`Content-Encoding`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+header to reflect the encoding as well as ensure the
+[`Vary`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Vary) header
+is adjusted or added to indicate what request headers affected the response.
+
+#### When is compression skipped?
+
+In addition to the logic above, there are a few other reasons why a response
+won't be compressed automatically:
+
+- The response body is a stream. Currently only _static_ response bodies are
+  supported. We will add streaming support in the future.
+- The response contains a `Content-Encoding` header. This indicates your server
+  has done some form of encoding already.
+- The response contains a
+  [`Content-Range`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Range)
+  header. This indicates that your server is responding to a range request,
+  where the bytes and ranges are negotiated outside of the control of the
+  internals to Deno.
+- The response has a
+  [`Cache-Control`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control)
+  header which contains a
+  [`no-transform`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control#other)
+  value. This indicates that your server doesn't want Deno or any downstream
+  proxies to modify the response.
+
+#### What happens to an `ETag` header?
+
+When you set an
+[`ETag`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag) that is
+not a weak validator and the body is compressed, Deno will change this to a weak
+validator (`W/`). This is to ensure the proper behavior of clients and
+downstream proxy services when validating the "freshness" of the content of the
+response body.
 
 ### Lower level HTTP server APIs
 
